@@ -97,7 +97,7 @@ impl RespDecode for SimpleString {
     const PREFIX: &'static str = "+";
 
     fn decode(buf: &mut bytes::BytesMut) -> Result<Self, crate::RespError> {
-        let end = extract_simple_frame_data(buf, &Self::PREFIX)?;
+        let end = extract_simple_frame_data(buf, Self::PREFIX)?;
         let data = buf.split_to(end + CRLF_LEN);
 
         let s = String::from_utf8_lossy(&data[Self::PREFIX.len()..end]);
@@ -114,7 +114,7 @@ impl RespDecode for SimpleError {
     const PREFIX: &'static str = "-";
 
     fn decode(buf: &mut bytes::BytesMut) -> Result<Self, RespError> {
-        let end = extract_simple_frame_data(buf, &Self::PREFIX)?;
+        let end = extract_simple_frame_data(buf, Self::PREFIX)?;
         let data = buf.split_to(end + CRLF_LEN);
 
         let s = String::from_utf8_lossy(&data[Self::PREFIX.len()..end]);
@@ -612,6 +612,21 @@ mod tests {
         let buf = b"*2\r\n$3\r\nset\r\n";
         let (end, len) = parse_length(buf, "*")?;
         let ret = calc_total_length(buf, end, len, "*");
+        assert_eq!(ret.unwrap_err(), RespError::NotComplete);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_calc_map_length() -> Result<()> {
+        let buf = b"%2\r\n+hello\r\n$5\r\nworld\r\n+foo\r\n$3\r\nbar\r\n";
+        let (end, len) = parse_length(buf, "%")?;
+        let total_len = calc_total_length(buf, end, len, "%")?;
+        assert_eq!(total_len, buf.len());
+
+        let buf = b"%2\r\n+hello\r\n$5\r\nworld\r\n";
+        let (end, len) = parse_length(buf, "%")?;
+        let ret = calc_total_length(buf, end, len, "%");
         assert_eq!(ret.unwrap_err(), RespError::NotComplete);
 
         Ok(())

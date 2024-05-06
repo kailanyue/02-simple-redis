@@ -202,7 +202,7 @@ impl From<&str> for SimpleError {
 
 impl From<&str> for BulkString {
     fn from(value: &str) -> Self {
-        BulkString(value.as_bytes().to_vec())   
+        BulkString(value.as_bytes().to_vec())
     }
 }
 
