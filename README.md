@@ -37,3 +37,32 @@ cargo add lazy_static
 ```
 
 创建 encode trait 和 decode trait
+
+
+
+### 02.网络层
+
+```sh
+
+cargo add tracing
+cargo add tracing-subscriber --features=env-filter
+
+cargo add tokio --features=rt,rt-multi-thread,macros,net
+cargo add tokio-stream
+cargo add tokio-util --features=codec
+cargo add futures --no-default-features
+```
+
+### 03.使用redis-cli进行测试
+
+Windows 环境借助 [redis-windows](https://github.com/redis-windows/redis-windows) 实现测试
+
+#### 启动 redis-cli
+在终端中输入以下命令启动 redis-cli
+
+#### 启动 simple-redis
+
+```sh
+$Env:RUST_LOG="debug"
+cargo run --bin simple-redis
+```
