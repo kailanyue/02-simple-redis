@@ -116,17 +116,17 @@ impl RespDecode for RespFrame {
     }
 }
 
-impl From<&str> for RespFrame {
-    fn from(s: &str) -> Self {
-        SimpleString(s.to_string()).into()
-    }
-}
+// impl From<&str> for RespFrame {
+//     fn from(s: &str) -> Self {
+//         SimpleString(s.to_string()).into()
+//     }
+// }
 
-impl From<&[u8]> for RespFrame {
-    fn from(s: &[u8]) -> Self {
-        BulkString(s.to_vec()).into()
-    }
-}
+// impl From<&[u8]> for RespFrame {
+//     fn from(s: &[u8]) -> Self {
+//         BulkString(s.to_vec()).into()
+//     }
+// }
 
 impl<const N: usize> From<&[u8; N]> for RespFrame {
     fn from(s: &[u8; N]) -> Self {

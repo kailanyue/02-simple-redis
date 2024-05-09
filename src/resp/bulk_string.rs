@@ -89,6 +89,12 @@ impl From<&str> for BulkString {
     }
 }
 
+impl From<String> for BulkString {
+    fn from(s: String) -> Self {
+        BulkString(s.into_bytes())
+    }
+}
+
 impl From<&[u8]> for BulkString {
     fn from(value: &[u8]) -> Self {
         BulkString(value.to_vec())
