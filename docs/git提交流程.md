@@ -3,43 +3,41 @@
 ### 全局配置
 ```sh
 git config --global core.autocrlf true
-
 ```
 
 ### 本地项目配置
 ```sh
 git config --local core.autocrlf true
 ```
+## 添加作者信息
+```sh
+git config --local user.name "kailanyue"
+git config --local user.email "yuekailan@163.com"
+```
 
 ## git 提交流程
 ```sh
-# 安装 pre-commit
+# 1.cargo fmt 格式化代码
+cargo fmt --check
+cargo fmt .
+
+# 2.cargo deny 检查
+cargo deny check -d
+
+# 3.测试覆盖检查
+cargo tarpaulin --out Html
+
+# 4.安装 pre-commit
 pre-commit install
 
-# 修改添加到暂存区
+# 5.修改添加到暂存区
 git add filename
 git add .
 
-# cargo deny 检查
-cargo deny check -d
-
-# 提交
+# 6.提交
 git commit -m "提交内容"
 ```
 
-## tag
-```sh
-# 更新 CHANGELOG
-git-cliff -o CHANGELOG.md
-
-# 添加 tag
-git tag -a v1.0
-git push -u origin v1.0
-
-# 删除 tag
-git tag -d v1.0
-git push -d origin v1.7-csv
-```
 ## 提交消息前缀
 在 Git 中，有一些常见的提交消息前缀，可以帮助你更好地描述你的提交。以下是一些常见的前缀：
 
@@ -58,4 +56,18 @@ git push -d origin v1.7-csv
 ```sh
 git commit -m "feat: Add new feature XYZ"
 git commit -m "fix: Fix issue ABC"
+```
+
+## 添加 tag 并提交
+```sh
+# 0.更新 CHANGELOG
+git-cliff -o CHANGELOG.md
+
+# 1.添加 tag, 并推送
+git tag -a v1.0
+git push -u origin v1.0
+
+# 2.删除 tag
+git tag -d v1.0
+git push -d origin v1.7-csv
 ```
