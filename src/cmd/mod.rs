@@ -190,4 +190,21 @@ mod tests {
         let value = RespArray(vec![RespFrame::BulkString(b"ping".into())]);
         assert!(validate_command(&value, &["ping", "pong"], 1).is_err());
     }
+
+    #[test]
+    fn test_extract_args() {
+        let value = RespArray(vec![
+            RespFrame::BulkString(b"set".into()),
+            RespFrame::BulkString(b"key".into()),
+            RespFrame::BulkString(b"value".into()),
+        ]);
+
+        assert_eq!(
+            extract_args(value, 1).unwrap(),
+            vec![
+                RespFrame::BulkString(b"key".into()),
+                RespFrame::BulkString(b"value".into())
+            ]
+        );
+    }
 }
