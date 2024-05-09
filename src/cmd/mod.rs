@@ -4,6 +4,7 @@ use thiserror::Error;
 
 use crate::{backend::Backend, RespArray, RespError, RespFrame, SimpleString};
 
+mod conn;
 mod hmap;
 mod map;
 
@@ -37,7 +38,8 @@ pub enum Command {
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
-
+    Echo(Echo),
+    Ping(Ping),
     // unrecognized command
     Unrecognized(Unrecognized),
 }
@@ -73,6 +75,16 @@ pub struct HGetAll {
 }
 
 #[derive(Debug)]
+pub struct Echo {
+    pub message: String,
+}
+
+#[derive(Debug)]
+pub struct Ping {
+    pub message: String,
+}
+
+#[derive(Debug)]
 pub struct Unrecognized;
 
 impl TryFrom<RespFrame> for Command {
@@ -93,14 +105,18 @@ impl TryFrom<RespArray> for Command {
 
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
         match value.first() {
-            Some(RespFrame::BulkString(ref cmd)) => match cmd.as_ref() {
-                b"get" => Ok(Get::try_from(value)?.into()),
-                b"set" => Ok(Set::try_from(value)?.into()),
-                b"hget" => Ok(HGet::try_from(value)?.into()),
-                b"hset" => Ok(HSet::try_from(value)?.into()),
-                b"hgetall" => Ok(HGetAll::try_from(value)?.into()),
-                _ => Ok(Unrecognized.into()),
-            },
+            Some(RespFrame::BulkString(ref cmd)) => {
+                match cmd.as_ref().to_ascii_lowercase().as_slice() {
+                    b"get" => Ok(Get::try_from(value)?.into()),
+                    b"set" => Ok(Set::try_from(value)?.into()),
+                    b"hget" => Ok(HGet::try_from(value)?.into()),
+                    b"hset" => Ok(HSet::try_from(value)?.into()),
+                    b"hgetall" => Ok(HGetAll::try_from(value)?.into()),
+                    b"echo" => Ok(Echo::try_from(value)?.into()),
+                    b"ping" => Ok(Ping::try_from(value)?.into()),
+                    _ => Ok(Unrecognized.into()),
+                }
+            }
             _ => Err(CommandError::InvalidCommand(
                 "Command must have a BulkString as the first argument".to_string(),
             )),
