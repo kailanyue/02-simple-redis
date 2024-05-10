@@ -1,7 +1,8 @@
 use crate::{backend::Backend, BulkString, RespArray, RespFrame, RespNull};
 
 use super::{
-    extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HSet, RESP_OK,
+    extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HMGet, HSet,
+    RESP_OK,
 };
 
 impl CommandExecutor for HGet {
@@ -50,6 +51,28 @@ impl CommandExecutor for HSet {
     }
 }
 
+impl CommandExecutor for HMGet {
+    fn execute(self, backend: &Backend) -> RespFrame {
+        if let Some(hmap) = backend.hmget1(&self.key, &self.fields) {
+            let data = self
+                .fields
+                .iter()
+                .map(|field| {
+                    hmap.get(field)
+                        .map(|v| v.value().clone())
+                        .unwrap_or_else(|| RespFrame::Null(RespNull))
+                })
+                .collect::<Vec<_>>();
+
+            RespArray::new(data).into()
+        } else {
+            // 这对 key 不存在的情况，返回一个 fields 大小的空数组
+            let data = vec![RespFrame::Null(RespNull); self.fields.len()];
+            RespArray::new(data).into()
+        }
+    }
+}
+
 impl TryFrom<RespArray> for HGet {
     type Error = CommandError;
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
@@ -81,6 +104,50 @@ impl TryFrom<RespArray> for HGetAll {
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }
+    }
+}
+
+trait TryIntoBulkString {
+    fn try_into_bulk_string(self) -> Result<String, CommandError>;
+}
+
+impl TryIntoBulkString for RespFrame {
+    fn try_into_bulk_string(self) -> Result<String, CommandError> {
+        if let RespFrame::BulkString(bs) = self {
+            String::from_utf8(bs.0).map_err(|e| CommandError::InvalidArgument(e.to_string()))
+        } else {
+            Err(CommandError::InvalidArgument(
+                "Expected BulkString".to_string(),
+            ))
+        }
+    }
+}
+
+impl TryFrom<RespArray> for HMGet {
+    type Error = CommandError;
+
+    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
+        match value.len() > 2 {
+            true => validate_command(&value, &["hmget"], value.len() - 1)?,
+            false => {
+                return Err(CommandError::InvalidArgument(
+                    "wrong number of arguments for 'hmget' command".to_string(),
+                ))
+            }
+        }
+
+        let mut args = extract_args(value, 1)?.into_iter();
+
+        let key = args
+            .next()
+            .ok_or_else(|| CommandError::InvalidArgument("Missing key".to_string()))?
+            .try_into_bulk_string()?;
+
+        let fields = args
+            .map(RespFrame::try_into_bulk_string)
+            .collect::<Result<Vec<String>, Self::Error>>()?;
+
+        Ok(HMGet { key, fields })
     }
 }
 

@@ -76,7 +76,7 @@ mod tests {
         ])
         .into();
 
-        assert_eq!(&s.encode(), b"~2\r\n$5\r\nhello\r\n*2\r\n:+1234\r\n#t\r\n")
+        assert_eq!(&s.encode(), b"~2\r\n$5\r\nhello\r\n*2\r\n:1234\r\n#t\r\n")
     }
 
     #[test]

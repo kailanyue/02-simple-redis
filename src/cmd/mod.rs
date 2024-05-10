@@ -9,7 +9,9 @@ mod hmap;
 mod map;
 
 lazy_static! {
-    static ref RESP_OK: RespFrame = SimpleString::new("OK").into();
+    pub static ref RESP_OK: RespFrame = SimpleString::new("OK").into();
+    pub static ref RESP_INT_0: RespFrame = RespFrame::Integer(0);
+    pub static ref RESP_INT_1: RespFrame = RespFrame::Integer(1);
 }
 
 #[derive(Error, Debug)]
@@ -38,8 +40,11 @@ pub enum Command {
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
+    HMGet(HMGet),
     Echo(Echo),
     Ping(Ping),
+    SAdd(SAdd),
+    SisMember(SisMember),
     // unrecognized command
     Unrecognized(Unrecognized),
 }
@@ -51,6 +56,18 @@ pub struct Get {
 
 #[derive(Debug)]
 pub struct Set {
+    pub key: String,
+    pub value: RespFrame,
+}
+
+#[derive(Debug)]
+pub struct SAdd {
+    pub key: String,
+    pub value: RespFrame,
+}
+
+#[derive(Debug)]
+pub struct SisMember {
     pub key: String,
     pub value: RespFrame,
 }
@@ -72,6 +89,12 @@ pub struct HSet {
 pub struct HGetAll {
     pub key: String,
     sort: bool,
+}
+
+#[derive(Debug)]
+pub struct HMGet {
+    pub key: String,
+    pub fields: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -109,9 +132,12 @@ impl TryFrom<RespArray> for Command {
                 match cmd.as_ref().to_ascii_lowercase().as_slice() {
                     b"get" => Ok(Get::try_from(value)?.into()),
                     b"set" => Ok(Set::try_from(value)?.into()),
+                    b"sadd" => Ok(SAdd::try_from(value)?.into()),
+                    b"sismember" => Ok(SisMember::try_from(value)?.into()),
                     b"hget" => Ok(HGet::try_from(value)?.into()),
                     b"hset" => Ok(HSet::try_from(value)?.into()),
                     b"hgetall" => Ok(HGetAll::try_from(value)?.into()),
+                    b"hmget" => Ok(HMGet::try_from(value)?.into()),
                     b"echo" => Ok(Echo::try_from(value)?.into()),
                     b"ping" => Ok(Ping::try_from(value)?.into()),
                     _ => Ok(Unrecognized.into()),
