@@ -266,4 +266,36 @@ mod tests {
         assert_eq!(result, expected.into());
         Ok(())
     }
+
+    #[test]
+    fn test_hmget_command() {
+        let backend = Backend::new();
+        let cmd = HSet {
+            key: "map".to_string(),
+            field: "k1".to_string(),
+            value: RespFrame::BulkString(b"v1".into()),
+        };
+
+        cmd.execute(&backend);
+        let cmd = HSet {
+            key: "map".to_string(),
+            field: "k2".to_string(),
+            value: RespFrame::BulkString(b"v2".into()),
+        };
+        cmd.execute(&backend);
+
+        let cmd = HMGet {
+            key: "map".to_string(),
+            fields: vec!["k1".to_string(), "k2".to_string(), "k3".to_string()],
+        };
+        let result = cmd.execute(&backend);
+
+        let expected = RespArray::new([
+            BulkString::from("v1").into(),
+            BulkString::from("v2").into(),
+            RespNull.into(),
+        ]);
+
+        assert_eq!(result, expected.into())
+    }
 }

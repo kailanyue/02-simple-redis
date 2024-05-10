@@ -11,69 +11,73 @@ use super::{
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct RespArray(pub(crate) Vec<RespFrame>);
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct RespNullArray;
+const NULL_RESP_ARRAY: &[u8] = b"*-1\r\n";
 
 impl RespEncode for RespArray {
     fn encode(self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(BUF_CAP);
-        buf.extend_from_slice(&format!("*{}\r\n", self.0.len()).into_bytes());
+        if self.is_null() {
+            // 如果是空数组，返回对应的编码
+            NULL_RESP_ARRAY.to_vec()
+        } else {
+            let mut buf = Vec::with_capacity(BUF_CAP);
+            buf.extend_from_slice(&format!("*{}\r\n", self.0.len()).into_bytes());
 
-        for item in self.0 {
-            buf.extend_from_slice(&item.encode());
+            for item in self.0 {
+                buf.extend_from_slice(&item.encode());
+            }
+            buf
         }
-        buf
     }
 }
 
 impl RespDecode for RespArray {
     const PREFIX: &'static str = "*";
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let (end, len) = parse_length(buf, Self::PREFIX)?;
-        let total_len = calc_total_length(buf, end, len, Self::PREFIX)?;
+        if buf.starts_with(NULL_RESP_ARRAY) {
+            // 如果是空数组的编码，直接返回空数组
+            extract_fixed_data(buf, std::str::from_utf8(NULL_RESP_ARRAY)?, "NullArray")?;
+            Ok(RespArray::null())
+        } else {
+            let (end, len) = parse_length(buf, Self::PREFIX)?;
+            let total_len = calc_total_length(buf, end, len, Self::PREFIX)?;
 
-        if buf.len() < total_len {
-            return Err(RespError::NotComplete);
+            if buf.len() < total_len {
+                return Err(RespError::NotComplete);
+            }
+
+            buf.advance(end + CRLF_LEN);
+
+            let mut frames = Vec::with_capacity(len);
+            for _ in 0..len {
+                frames.push(RespFrame::decode(buf)?);
+            }
+
+            Ok(RespArray::new(frames))
         }
-
-        buf.advance(end + CRLF_LEN);
-
-        let mut frames = Vec::with_capacity(len);
-        for _ in 0..len {
-            frames.push(RespFrame::decode(buf)?);
-        }
-
-        Ok(RespArray::new(frames))
     }
 
     fn expect_length(buf: &[u8]) -> Result<usize, RespError> {
-        let (end, len) = parse_length(buf, Self::PREFIX)?;
-        calc_total_length(buf, end, len, Self::PREFIX)
-    }
-}
-
-// - null array: "*-1\r\n"
-impl RespEncode for RespNullArray {
-    fn encode(self) -> Vec<u8> {
-        b"*-1\r\n".to_vec()
-    }
-}
-
-impl RespDecode for RespNullArray {
-    const PREFIX: &'static str = "*";
-    fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        extract_fixed_data(buf, "*-1\r\n", "NullArray")?;
-        Ok(RespNullArray)
-    }
-
-    fn expect_length(_buf: &[u8]) -> Result<usize, RespError> {
-        Ok(4)
+        if buf.starts_with(NULL_RESP_ARRAY) {
+            // 如果是空数组的编码，返回对应的长度
+            Ok(NULL_RESP_ARRAY.len())
+        } else {
+            let (end, len) = parse_length(buf, Self::PREFIX)?;
+            calc_total_length(buf, end, len, Self::PREFIX)
+        }
     }
 }
 
 impl RespArray {
     pub fn new(s: impl Into<Vec<RespFrame>>) -> Self {
         RespArray(s.into())
+    }
+
+    pub fn null() -> Self {
+        RespArray(Vec::new())
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -108,7 +112,7 @@ mod tests {
 
     #[test]
     fn test_null_array_encode() {
-        let s: RespFrame = RespNullArray.into();
+        let s: RespFrame = RespArray::null().into();
         assert_eq!(s.encode(), b"*-1\r\n");
     }
 
@@ -117,8 +121,8 @@ mod tests {
         let mut buf = BytesMut::new();
         buf.extend_from_slice(b"*-1\r\n");
 
-        let frame = RespNullArray::decode(&mut buf)?;
-        assert_eq!(frame, RespNullArray);
+        let frame = RespArray::decode(&mut buf)?;
+        assert_eq!(frame, RespArray::null());
 
         Ok(())
     }

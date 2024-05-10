@@ -39,137 +39,68 @@ impl CommandExecutor for SisMember {
     }
 }
 
+// 通用函数，用于验证命令并提取参数
+fn extract_and_validate_args(
+    value: RespArray,
+    command: &'static str,
+    expected_args: usize,
+) -> Result<(String, Option<RespFrame>), CommandError> {
+    validate_command(&value, &[command], expected_args)?;
+
+    let mut args = extract_args(value, 1)?.into_iter();
+    let key = match args.next() {
+        Some(RespFrame::BulkString(key)) => String::from_utf8(key.0)?,
+        _ => return Err(CommandError::InvalidArgument("Invalid key".to_string())),
+    };
+
+    let value = args.next();
+    Ok((key, value))
+}
+
+// Get命令的TryFrom实现
 impl TryFrom<RespArray> for Get {
     type Error = CommandError;
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["get"], 1)?;
-
-        let mut args = extract_args(value, 1)?.into_iter();
-        match args.next() {
-            Some(RespFrame::BulkString(key)) => Ok(Get {
-                key: String::from_utf8(key.0)?,
-            }),
-            _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
-        }
+        let (key, _) = extract_and_validate_args(value, "get", 1)?;
+        Ok(Get { key })
     }
 }
 
+// Set命令的TryFrom实现
 impl TryFrom<RespArray> for Set {
     type Error = CommandError;
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["set"], 2)?;
-
-        let mut args = extract_args(value, 1)?.into_iter();
-        match (args.next(), args.next()) {
-            (Some(RespFrame::BulkString(key)), Some(value)) => Ok(Set {
-                key: String::from_utf8(key.0)?,
-                value,
-            }),
-            _ => Err(CommandError::InvalidArgument(
-                "Invalid key or value".to_string(),
-            )),
+        let (key, value) = extract_and_validate_args(value, "set", 2)?;
+        match value {
+            Some(value) => Ok(Set { key, value }),
+            _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
         }
     }
 }
 
+// SAdd命令的TryFrom实现
 impl TryFrom<RespArray> for SAdd {
     type Error = CommandError;
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["sadd"], 2)?;
-
-        let mut args = extract_args(value, 1)?.into_iter();
-        match (args.next(), args.next()) {
-            (Some(RespFrame::BulkString(key)), Some(value)) => Ok(SAdd {
-                key: String::from_utf8(key.0)?,
-                value,
-            }),
-            _ => Err(CommandError::InvalidArgument(
-                "Invalid key or value".to_string(),
-            )),
+        let (key, value) = extract_and_validate_args(value, "sadd", 2)?;
+        match value {
+            Some(value) => Ok(SAdd { key, value }),
+            _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
         }
     }
 }
 
+// SisMember命令的TryFrom实现
 impl TryFrom<RespArray> for SisMember {
     type Error = CommandError;
     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        validate_command(&value, &["sismember"], 2)?;
-
-        let mut args = extract_args(value, 1)?.into_iter();
-        match (args.next(), args.next()) {
-            (Some(RespFrame::BulkString(key)), Some(value)) => Ok(SisMember {
-                key: String::from_utf8(key.0)?,
-                value,
-            }),
-            _ => Err(CommandError::InvalidArgument(
-                "Invalid key or value".to_string(),
-            )),
+        let (key, value) = extract_and_validate_args(value, "sismember", 2)?;
+        match value {
+            Some(value) => Ok(SisMember { key, value }),
+            _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
         }
     }
 }
-
-// // 通用函数，用于验证命令并提取参数
-// fn extract_and_validate_args(
-//     value: RespArray,
-//     command: &'static str,
-//     expected_args: usize,
-// ) -> Result<(String, Option<RespFrame>), CommandError> {
-//     validate_command(&value, &[command], expected_args)?;
-
-//     let mut args = extract_args(value, expected_args)?.into_iter();
-//     let key = match args.next() {
-//         Some(RespFrame::BulkString(key)) => String::from_utf8(key.0)?,
-//         _ => return Err(CommandError::InvalidArgument("Invalid key".to_string())),
-//     };
-
-//     let value = args.next();
-//     Ok((key, value))
-// }
-
-// // Get命令的TryFrom实现
-// impl TryFrom<RespArray> for Get {
-//     type Error = CommandError;
-//     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-//         let (key, _) = extract_and_validate_args(value, "get", 1)?;
-//         Ok(Get { key })
-//     }
-// }
-
-// // Set命令的TryFrom实现
-// impl TryFrom<RespArray> for Set {
-//     type Error = CommandError;
-//     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-//         let (key, value) = extract_and_validate_args(value, "set", 2)?;
-//         match value {
-//             Some(value) => Ok(Set { key, value }),
-//             _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
-//         }
-//     }
-// }
-
-// // SAdd命令的TryFrom实现
-// impl TryFrom<RespArray> for SAdd {
-//     type Error = CommandError;
-//     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-//         let (key, value) = extract_and_validate_args(value, "sadd", 2)?;
-//         match value {
-//             Some(value) => Ok(SAdd { key, value }),
-//             _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
-//         }
-//     }
-// }
-
-// // SisMember命令的TryFrom实现
-// impl TryFrom<RespArray> for SisMember {
-//     type Error = CommandError;
-//     fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-//         let (key, value) = extract_and_validate_args(value, "sismember", 2)?;
-//         match value {
-//             Some(value) => Ok(SisMember { key, value }),
-//             _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
@@ -222,6 +153,58 @@ mod tests {
         let result = cmd.execute(&backend);
         assert_eq!(result, RespFrame::BulkString(b"world".into()));
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_sadd_command() -> Result<()> {
+        let backend = Backend::new();
+        let cmd = SAdd {
+            key: "k1".to_string(),
+            value: RespFrame::BulkString(b"v1".into()),
+        };
+        let result = cmd.execute(&backend);
+        assert_eq!(result, RESP_INT_1.clone());
+
+        let cmd = SAdd {
+            key: "k1".to_string(),
+            value: RespFrame::BulkString(b"v1".into()),
+        };
+        let result = cmd.execute(&backend);
+        assert_eq!(result, RESP_INT_0.clone());
+
+        let cmd = SAdd {
+            key: "k1".to_string(),
+            value: RespFrame::BulkString(b"v2".into()),
+        };
+        let result = cmd.execute(&backend);
+        assert_eq!(result, RESP_INT_1.clone());
+        Ok(())
+    }
+
+    #[test]
+    fn test_sismember_command() -> Result<()> {
+        let backend = Backend::new();
+        let cmd = SisMember {
+            key: "k1".to_string(),
+            value: RespFrame::BulkString(b"v1".into()),
+        };
+        let result = cmd.execute(&backend);
+        assert_eq!(result, RESP_INT_0.clone());
+
+        // sadd 添加数据
+        let cmd = SAdd {
+            key: "k1".to_string(),
+            value: RespFrame::BulkString(b"v1".into()),
+        };
+        cmd.execute(&backend);
+
+        let cmd = SisMember {
+            key: "k1".to_string(),
+            value: RespFrame::BulkString(b"v1".into()),
+        };
+        let result = cmd.execute(&backend);
+        assert_eq!(result, RESP_INT_1.clone());
         Ok(())
     }
 }

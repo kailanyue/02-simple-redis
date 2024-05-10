@@ -5,67 +5,75 @@ use bytes::{Buf, BytesMut};
 use crate::{RespDecode, RespEncode, RespError};
 
 use super::{extract_fixed_data, parse_length, CRLF_LEN};
+// 添加一个表示空字符串的常量
+const NULL_BULK_STRING: &[u8] = b"$-1\r\n";
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct BulkString(pub(crate) Vec<u8>);
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct RespNullBulkString;
+// - bulk string: "$<length>\r\n<data>\r\n"
+impl RespEncode for BulkString {
+    fn encode(self) -> Vec<u8> {
+        if self.is_null() {
+            // 如果是空字符串，返回对应的编码
+            NULL_BULK_STRING.to_vec()
+        } else {
+            let mut buf = Vec::with_capacity(self.len() + 16);
+            buf.extend_from_slice(&format!("${}\r\n", self.len()).into_bytes());
+            buf.extend_from_slice(&self);
+            buf.extend_from_slice(b"\r\n");
+            buf
+        }
+    }
+}
 
 impl RespDecode for BulkString {
     const PREFIX: &'static str = "$";
     fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        let (end, len) = parse_length(buf, Self::PREFIX)?;
-        let remained = &buf[end + CRLF_LEN..];
-        if remained.len() < len + CRLF_LEN {
-            return Err(RespError::NotComplete);
+        if buf.starts_with(NULL_BULK_STRING) {
+            // 如果是空字符串的编码，直接返回空字符串
+            extract_fixed_data(
+                buf,
+                std::str::from_utf8(NULL_BULK_STRING)?,
+                "NullBulkString",
+            )?;
+            Ok(BulkString::null())
+        } else {
+            let (end, len) = parse_length(buf, Self::PREFIX)?;
+            let remained = &buf[end + CRLF_LEN..];
+            if remained.len() < len + CRLF_LEN {
+                return Err(RespError::NotComplete);
+            }
+
+            buf.advance(end + CRLF_LEN);
+
+            let data = buf.split_to(len + CRLF_LEN);
+            Ok(BulkString::new(data[..len].to_vec()))
         }
-
-        buf.advance(end + CRLF_LEN);
-
-        let data = buf.split_to(len + CRLF_LEN);
-        Ok(BulkString::new(data[..len].to_vec()))
     }
 
     fn expect_length(buf: &[u8]) -> Result<usize, RespError> {
-        let (end, len) = parse_length(buf, Self::PREFIX)?;
-        Ok(end + CRLF_LEN + len + CRLF_LEN)
-    }
-}
-
-impl RespDecode for RespNullBulkString {
-    const PREFIX: &'static str = "$";
-    fn decode(buf: &mut BytesMut) -> Result<Self, RespError> {
-        extract_fixed_data(buf, "$-1\r\n", "NullBulkString")?;
-        Ok(RespNullBulkString)
-    }
-
-    fn expect_length(_buf: &[u8]) -> Result<usize, RespError> {
-        Ok(5)
-    }
-}
-
-// - bulk string: "$<length>\r\n<data>\r\n"
-impl RespEncode for BulkString {
-    fn encode(self) -> Vec<u8> {
-        let mut buf = Vec::with_capacity(self.len() + 16);
-        buf.extend_from_slice(&format!("${}\r\n", self.len()).into_bytes());
-        buf.extend_from_slice(&self);
-        buf.extend_from_slice(b"\r\n");
-        buf
-    }
-}
-
-// - null bulk string: "$-1\r\n"
-impl RespEncode for RespNullBulkString {
-    fn encode(self) -> Vec<u8> {
-        b"$-1\r\n".to_vec()
+        if buf.starts_with(NULL_BULK_STRING) {
+            // 如果是空字符串的编码，返回对应的长度
+            Ok(NULL_BULK_STRING.len())
+        } else {
+            let (end, len) = parse_length(buf, Self::PREFIX)?;
+            Ok(end + CRLF_LEN + len + CRLF_LEN)
+        }
     }
 }
 
 impl BulkString {
     pub fn new(s: impl Into<Vec<u8>>) -> Self {
         BulkString(s.into())
+    }
+
+    pub fn null() -> Self {
+        BulkString(Vec::new())
+    }
+
+    pub fn is_null(&self) -> bool {
+        self.0.is_empty()
     }
 }
 
@@ -121,7 +129,7 @@ mod tests {
 
     #[test]
     fn test_null_bulk_string_encode() {
-        let s: RespFrame = RespNullBulkString.into();
+        let s: RespFrame = BulkString::null().into();
         assert_eq!(s.encode(), b"$-1\r\n");
     }
 
@@ -149,8 +157,8 @@ mod tests {
         let mut buf = BytesMut::new();
 
         buf.extend_from_slice(b"$-1\r\n");
-        let frame = RespNullBulkString::decode(&mut buf)?;
-        assert_eq!(frame, RespNullBulkString);
+        let frame = BulkString::decode(&mut buf)?;
+        assert_eq!(frame, BulkString::null());
 
         Ok(())
     }
