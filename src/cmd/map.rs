@@ -1,9 +1,6 @@
 use crate::{backend::Backend, RespArray, RespFrame, RespNull};
 
-use super::{
-    extract_args, validate_command, CommandError, CommandExecutor, Get, SAdd, Set, SisMember,
-    RESP_INT_0, RESP_INT_1, RESP_OK,
-};
+use super::{extract_args, validate_command, CommandError, CommandExecutor, Get, Set, RESP_OK};
 
 impl CommandExecutor for Get {
     fn execute(self, backend: &Backend) -> RespFrame {
@@ -21,26 +18,8 @@ impl CommandExecutor for Set {
     }
 }
 
-impl CommandExecutor for SAdd {
-    fn execute(self, backend: &Backend) -> RespFrame {
-        backend.sadd(self.key, self.value)
-    }
-}
-
-impl CommandExecutor for SisMember {
-    fn execute(self, backend: &Backend) -> RespFrame {
-        backend.get(&self.key).map_or(RESP_INT_0.clone(), |value| {
-            if value == self.value {
-                RESP_INT_1.clone()
-            } else {
-                RESP_INT_0.clone()
-            }
-        })
-    }
-}
-
 // 通用函数，用于验证命令并提取参数
-fn extract_and_validate_args(
+pub fn extract_and_validate_args(
     value: RespArray,
     command: &'static str,
     expected_args: usize,
@@ -73,30 +52,6 @@ impl TryFrom<RespArray> for Set {
         let (key, value) = extract_and_validate_args(value, "set", 2)?;
         match value {
             Some(value) => Ok(Set { key, value }),
-            _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
-        }
-    }
-}
-
-// SAdd命令的TryFrom实现
-impl TryFrom<RespArray> for SAdd {
-    type Error = CommandError;
-    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        let (key, value) = extract_and_validate_args(value, "sadd", 2)?;
-        match value {
-            Some(value) => Ok(SAdd { key, value }),
-            _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
-        }
-    }
-}
-
-// SisMember命令的TryFrom实现
-impl TryFrom<RespArray> for SisMember {
-    type Error = CommandError;
-    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
-        let (key, value) = extract_and_validate_args(value, "sismember", 2)?;
-        match value {
-            Some(value) => Ok(SisMember { key, value }),
             _ => Err(CommandError::InvalidArgument("Invalid value".to_string())),
         }
     }
@@ -153,58 +108,6 @@ mod tests {
         let result = cmd.execute(&backend);
         assert_eq!(result, RespFrame::BulkString(b"world".into()));
 
-        Ok(())
-    }
-
-    #[test]
-    fn test_sadd_command() -> Result<()> {
-        let backend = Backend::new();
-        let cmd = SAdd {
-            key: "k1".to_string(),
-            value: RespFrame::BulkString(b"v1".into()),
-        };
-        let result = cmd.execute(&backend);
-        assert_eq!(result, RESP_INT_1.clone());
-
-        let cmd = SAdd {
-            key: "k1".to_string(),
-            value: RespFrame::BulkString(b"v1".into()),
-        };
-        let result = cmd.execute(&backend);
-        assert_eq!(result, RESP_INT_0.clone());
-
-        let cmd = SAdd {
-            key: "k1".to_string(),
-            value: RespFrame::BulkString(b"v2".into()),
-        };
-        let result = cmd.execute(&backend);
-        assert_eq!(result, RESP_INT_1.clone());
-        Ok(())
-    }
-
-    #[test]
-    fn test_sismember_command() -> Result<()> {
-        let backend = Backend::new();
-        let cmd = SisMember {
-            key: "k1".to_string(),
-            value: RespFrame::BulkString(b"v1".into()),
-        };
-        let result = cmd.execute(&backend);
-        assert_eq!(result, RESP_INT_0.clone());
-
-        // sadd 添加数据
-        let cmd = SAdd {
-            key: "k1".to_string(),
-            value: RespFrame::BulkString(b"v1".into()),
-        };
-        cmd.execute(&backend);
-
-        let cmd = SisMember {
-            key: "k1".to_string(),
-            value: RespFrame::BulkString(b"v1".into()),
-        };
-        let result = cmd.execute(&backend);
-        assert_eq!(result, RESP_INT_1.clone());
         Ok(())
     }
 }

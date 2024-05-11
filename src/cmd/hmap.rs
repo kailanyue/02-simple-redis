@@ -2,7 +2,7 @@ use crate::{backend::Backend, BulkString, RespArray, RespFrame, RespNull};
 
 use super::{
     extract_args, validate_command, CommandError, CommandExecutor, HGet, HGetAll, HMGet, HSet,
-    RESP_OK,
+    TryIntoBulkString, RESP_OK,
 };
 
 impl CommandExecutor for HGet {
@@ -53,7 +53,7 @@ impl CommandExecutor for HSet {
 
 impl CommandExecutor for HMGet {
     fn execute(self, backend: &Backend) -> RespFrame {
-        if let Some(hmap) = backend.hmget1(&self.key, &self.fields) {
+        if let Some(hmap) = backend.hmget(&self.key, &self.fields) {
             let data = self
                 .fields
                 .iter()
@@ -103,22 +103,6 @@ impl TryFrom<RespArray> for HGetAll {
                 sort: false,
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
-        }
-    }
-}
-
-trait TryIntoBulkString {
-    fn try_into_bulk_string(self) -> Result<String, CommandError>;
-}
-
-impl TryIntoBulkString for RespFrame {
-    fn try_into_bulk_string(self) -> Result<String, CommandError> {
-        if let RespFrame::BulkString(bs) = self {
-            String::from_utf8(bs.0).map_err(|e| CommandError::InvalidArgument(e.to_string()))
-        } else {
-            Err(CommandError::InvalidArgument(
-                "Expected BulkString".to_string(),
-            ))
         }
     }
 }

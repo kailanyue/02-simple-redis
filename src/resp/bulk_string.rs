@@ -8,7 +8,7 @@ use super::{extract_fixed_data, parse_length, CRLF_LEN};
 // 添加一个表示空字符串的常量
 const NULL_BULK_STRING: &[u8] = b"$-1\r\n";
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Hash, Ord)]
 pub struct BulkString(pub(crate) Vec<u8>);
 
 // - bulk string: "$<length>\r\n<data>\r\n"

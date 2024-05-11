@@ -1,7 +1,10 @@
 // 实现 echo 和 ping 等连接相关的命令
 use crate::{Backend, BulkString, RespArray, RespFrame, SimpleString};
 
-use super::{extract_args, validate_command, CommandError, CommandExecutor, Echo, Ping};
+use super::{
+    extract_args, map::extract_and_validate_args, validate_command, CommandError, CommandExecutor,
+    Echo, Ping,
+};
 
 const PING: &str = "ping";
 const PONG: &str = "PONG";
@@ -64,17 +67,8 @@ impl TryFrom<RespArray> for Ping {
                 })
             }
             2 => {
-                validate_command(&value, &[PING], command_len - 1)?;
-
-                let mut args = extract_args(value, 1)?.into_iter();
-                match args.next() {
-                    Some(RespFrame::BulkString(key)) => Ok(Ping {
-                        message: String::from_utf8(key.0)?,
-                    }),
-                    _ => Err(CommandError::InvalidArgument(
-                        "Invalid argument".to_string(),
-                    )),
-                }
+                let (message, _) = extract_and_validate_args(value, PING, command_len - 1)?;
+                Ok(Ping { message })
             }
             _ => Err(CommandError::InvalidArgument(
                 "wrong number of arguments for 'ping' command".to_string(),

@@ -7,11 +7,13 @@ use crate::{backend::Backend, RespArray, RespError, RespFrame, SimpleString};
 mod conn;
 mod hmap;
 mod map;
+mod smap;
 
 lazy_static! {
     pub static ref RESP_OK: RespFrame = SimpleString::new("OK").into();
     pub static ref RESP_INT_0: RespFrame = RespFrame::Integer(0);
     pub static ref RESP_INT_1: RespFrame = RespFrame::Integer(1);
+    pub static ref RESP_INT_2: RespFrame = RespFrame::Integer(2);
 }
 
 #[derive(Error, Debug)]
@@ -63,13 +65,13 @@ pub struct Set {
 #[derive(Debug)]
 pub struct SAdd {
     pub key: String,
-    pub value: RespFrame,
+    pub values: Vec<String>,
 }
 
 #[derive(Debug)]
 pub struct SisMember {
     pub key: String,
-    pub value: RespFrame,
+    pub value: String,
 }
 
 #[derive(Debug)]
@@ -153,6 +155,22 @@ impl TryFrom<RespArray> for Command {
 impl CommandExecutor for Unrecognized {
     fn execute(self, _: &Backend) -> RespFrame {
         RESP_OK.clone()
+    }
+}
+
+pub trait TryIntoBulkString {
+    fn try_into_bulk_string(self) -> Result<String, CommandError>;
+}
+
+impl TryIntoBulkString for RespFrame {
+    fn try_into_bulk_string(self) -> Result<String, CommandError> {
+        if let RespFrame::BulkString(bs) = self {
+            String::from_utf8(bs.0).map_err(|e| CommandError::InvalidArgument(e.to_string()))
+        } else {
+            Err(CommandError::InvalidArgument(
+                "Expected BulkString".to_string(),
+            ))
+        }
     }
 }
 
