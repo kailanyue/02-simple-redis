@@ -7,13 +7,13 @@ use super::{
 
 impl CommandExecutor for SAdd {
     fn execute(self, backend: &Backend) -> RespFrame {
-        backend.sadd(self.key, self.values)
+        backend.sadd(&self.key, &self.values)
     }
 }
 
 impl CommandExecutor for SisMember {
     fn execute(self, backend: &Backend) -> RespFrame {
-        backend.sismember(&self.key, self.value)
+        backend.sismember(&self.key, &self.value)
     }
 }
 

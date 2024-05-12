@@ -51,13 +51,13 @@ impl Backend {
         self.map.insert(key, value);
     }
 
-    pub fn sadd<I, T>(&self, key: String, values: I) -> RespFrame
+    pub fn sadd<I, T>(&self, key: T, values: I) -> RespFrame
     where
         I: IntoIterator<Item = T>,
         T: Into<String>,
     {
         let mut count = 0;
-        let set = self.smap.entry(key).or_default();
+        let set = self.smap.entry(key.into()).or_default();
 
         for value in values {
             if set.insert(value.into()) {
@@ -67,10 +67,10 @@ impl Backend {
 
         RespFrame::Integer(count.into())
     }
-    pub fn sismember(&self, key: &str, value: String) -> RespFrame {
+    pub fn sismember(&self, key: &str, value: &str) -> RespFrame {
         self.smap
             .get(key)
-            .and_then(|v| v.get(&value).map(|_| RESP_INT_1.clone()))
+            .and_then(|v| v.get(value).map(|_| RESP_INT_1.clone()))
             .unwrap_or_else(|| RESP_INT_0.clone())
     }
 
