@@ -4,10 +4,10 @@ use dashmap::{DashMap, DashSet};
 use std::ops::Deref;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Backend(Arc<BackendInner>);
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct BackendInner {
     map: DashMap<String, RespFrame>,
     hmap: DashMap<String, DashMap<String, RespFrame>>,
@@ -19,22 +19,6 @@ impl Deref for Backend {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Default for Backend {
-    fn default() -> Self {
-        Self(Arc::new(BackendInner::default()))
-    }
-}
-
-impl Default for BackendInner {
-    fn default() -> Self {
-        Self {
-            map: DashMap::new(),
-            hmap: DashMap::new(),
-            smap: DashMap::new(),
-        }
     }
 }
 
